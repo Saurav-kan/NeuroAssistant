@@ -1,0 +1,226 @@
+"use client";
+
+import { useEffect, useState } from "react";
+import { useAppStore } from "@/lib/store";
+import { BionicText } from "@/components/features/BionicText";
+import { PanicOverlay } from "@/components/features/PanicOverlay";
+import { AIWidget } from "@/components/features/AIWidget";
+import { PomodoroTimer } from "@/components/features/PomodoroTimer";
+import { ProgressTracker } from "@/components/features/ProgressTracker";
+import { TTSReader } from "@/components/features/TTSReader";
+import { Switch } from "@/components/ui/switch";
+import { Label } from "@/components/ui/label";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { ArrowLeft, Settings, ChevronLeft, ChevronRight } from "lucide-react";
+import { useRouter } from "next/navigation";
+import { cn } from "@/lib/utils";
+
+export default function ReaderPage() {
+  const router = useRouter();
+  const {
+    currentText,
+    bionicEnabled,
+    focusModeEnabled,
+    currentSentenceIndex,
+    fontFamily,
+    darkMode,
+    toggleBionic,
+    toggleFocusMode,
+    setSentenceIndex,
+    setFontFamily,
+    toggleDarkMode,
+    startSession,
+  } = useAppStore();
+
+  const [sidebarOpen, setSidebarOpen] = useState(true);
+
+  // Apply dark mode to document
+  useEffect(() => {
+    if (darkMode) {
+      document.documentElement.classList.add("dark");
+    } else {
+      document.documentElement.classList.remove("dark");
+    }
+  }, [darkMode]);
+
+  // Redirect if no text
+  useEffect(() => {
+    if (!currentText) {
+      router.push("/");
+    }
+  }, [currentText, router]);
+
+  // Start session tracking when page loads
+  useEffect(() => {
+    startSession();
+  }, [startSession]);
+
+  if (!currentText) {
+    return null;
+  }
+
+  return (
+    <div className="min-h-screen bg-background flex">
+      {/* Floating Sidebar Toggle Button (when closed) */}
+      {!sidebarOpen && (
+        <Button
+          variant="outline"
+          size="icon"
+          onClick={() => setSidebarOpen(true)}
+          aria-label="Open sidebar"
+          className="fixed left-2 top-4 z-50 h-10 w-10 shadow-lg bg-background hover:bg-accent"
+        >
+          <ChevronRight className="h-5 w-5" />
+        </Button>
+      )}
+
+      {/* Sidebar with ADHD Tools */}
+      <div
+        className={cn(
+          "border-r bg-card transition-all duration-300 overflow-y-auto",
+          sidebarOpen ? "w-80" : "w-0"
+        )}
+      >
+        <div className={cn("p-4 space-y-4", !sidebarOpen && "hidden")}>
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="text-lg font-semibold">Study Tools</h2>
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={() => setSidebarOpen(false)}
+              aria-label="Close sidebar"
+            >
+              <ChevronLeft className="h-4 w-4" />
+            </Button>
+          </div>
+          <PomodoroTimer />
+          <TTSReader text={currentText} />
+          <ProgressTracker />
+        </div>
+      </div>
+
+      {/* Main Content Area */}
+      <div className="flex-1 flex flex-col min-w-0">
+        {/* Settings Panel */}
+        <div className="border-b bg-card">
+          <div className="spacing-relaxed">
+            <div className="flex items-center justify-between py-4">
+              <div className="flex items-center gap-2">
+                <Button
+                  variant="ghost"
+                  onClick={() => router.push("/")}
+                  className="gap-2"
+                >
+                  <ArrowLeft className="h-4 w-4" />
+                  Back
+                </Button>
+              </div>
+
+              <Card className="border-0 bg-transparent shadow-none">
+                <CardContent className="p-4">
+                  <div className="flex flex-wrap items-center gap-6">
+                    {/* Bionic Reading Toggle */}
+                    <div className="flex items-center gap-2">
+                      <Label htmlFor="bionic-toggle" className="cursor-pointer">
+                        Bionic Reading
+                      </Label>
+                      <Switch
+                        id="bionic-toggle"
+                        checked={bionicEnabled}
+                        onCheckedChange={toggleBionic}
+                        aria-label="Toggle bionic reading"
+                      />
+                    </div>
+
+                    {/* Focus Mode Toggle */}
+                    <div className="flex items-center gap-2">
+                      <Label htmlFor="focus-toggle" className="cursor-pointer">
+                        Focus Mode
+                      </Label>
+                      <Switch
+                        id="focus-toggle"
+                        checked={focusModeEnabled}
+                        onCheckedChange={toggleFocusMode}
+                        aria-label="Toggle focus mode"
+                      />
+                    </div>
+
+                    {/* Dark Mode Toggle */}
+                    <div className="flex items-center gap-2">
+                      <Label htmlFor="dark-toggle" className="cursor-pointer">
+                        Dark Mode
+                      </Label>
+                      <Switch
+                        id="dark-toggle"
+                        checked={darkMode}
+                        onCheckedChange={toggleDarkMode}
+                        aria-label="Toggle dark mode"
+                      />
+                    </div>
+
+                    {/* Font Selector */}
+                    <div className="flex items-center gap-2">
+                      <Label htmlFor="font-select" className="cursor-pointer">
+                        Font:
+                      </Label>
+                      <select
+                        id="font-select"
+                        value={fontFamily}
+                        onChange={(e) =>
+                          setFontFamily(
+                            e.target.value as "inter" | "opendyslexic"
+                          )
+                        }
+                        aria-label="Select font family"
+                        className="rounded-md border border-input bg-background px-2 py-1 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                      >
+                        <option value="inter">Inter</option>
+                        <option value="opendyslexic">OpenDyslexic</option>
+                      </select>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
+          </div>
+        </div>
+
+        {/* Main Reading Area */}
+        <div className="spacing-relaxed flex-1 overflow-y-auto">
+          <div
+            className={cn(
+              "mx-auto max-w-4xl py-8",
+              fontFamily === "opendyslexic" && "font-dyslexic"
+            )}
+          >
+            <BionicText
+              text={currentText}
+              enabled={bionicEnabled}
+              fontFamily={fontFamily}
+              className="prose prose-lg dark:prose-invert max-w-none"
+            />
+          </div>
+        </div>
+      </div>
+
+      {/* Panic Overlay (Focus Mode) */}
+      <PanicOverlay
+        text={currentText}
+        enabled={focusModeEnabled}
+        currentSentenceIndex={currentSentenceIndex}
+        onSentenceChange={setSentenceIndex}
+        onClose={toggleFocusMode}
+      />
+
+      {/* AI Widget (always active for text selection) */}
+      <AIWidget text={currentText} />
+    </div>
+  );
+}
