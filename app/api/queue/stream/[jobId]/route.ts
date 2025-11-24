@@ -84,14 +84,17 @@ export async function GET(
                 });
               }
               lastStatus = status.status;
-            } else if (status.progress && typeof status.progress === "object") {
+            } else if (
+              status.progress &&
+              typeof status.progress === "object" &&
+              "content" in status.progress &&
+              status.progress.content
+            ) {
               // Send progress update (if processor sends incremental progress)
-              if (status.progress.content) {
-                sendEvent({
-                  type: "progress",
-                  data: { content: status.progress.content },
-                });
-              }
+              sendEvent({
+                type: "progress",
+                data: { content: status.progress.content },
+              });
             }
           } catch (error) {
             sendEvent({

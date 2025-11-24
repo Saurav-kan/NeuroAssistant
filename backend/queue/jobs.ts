@@ -46,7 +46,7 @@ export interface JobStatus {
   jobId: string;
   status: "queued" | "processing" | "completed" | "failed";
   position?: number; // Position in queue
-  progress?: number; // 0-100
+  progress?: number | { content?: string }; // Progress: 0-100 percentage or streaming content
   result?: JobResult;
   error?: string;
   createdAt: number;
