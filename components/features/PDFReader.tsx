@@ -38,7 +38,7 @@ export function PDFReader() {
   );
   const isProcessingQueueRef = useRef(false);
 
-  // Process summary queue in batches of 5 to reduce API calls
+  // Process summary queue with dynamic batching (Token & Page limits)
   const processSummaryQueue = async () => {
     if (isProcessingQueueRef.current || summaryQueueRef.current.length === 0) {
       return;
@@ -46,26 +46,51 @@ export function PDFReader() {
 
     isProcessingQueueRef.current = true;
 
-    const BATCH_SIZE = 5; // Process 5 pages per API call
+    const MAX_BATCH_PAGES = 20;
+    const MAX_BATCH_TOKENS = 25000; // Reduced to 25k to account for output tokens
 
     while (summaryQueueRef.current.length > 0) {
-      // Collect up to BATCH_SIZE pages for batch processing
       const batch: Array<{ pageNum: number; pageText: string }> = [];
+      let currentBatchTokens = 0;
       
-      while (batch.length < BATCH_SIZE && summaryQueueRef.current.length > 0) {
-        const item = summaryQueueRef.current.shift();
-        if (!item) break;
-
-        // Skip if already generating or cached
+      // Peek at the queue to build the batch
+      while (batch.length < MAX_BATCH_PAGES && summaryQueueRef.current.length > 0) {
+        // Peek first, don't remove yet
+        const item = summaryQueueRef.current[0];
+        
+        // 1. Check if already done (cleanup)
         if (generatingSummaries.has(item.pageNum) || pageSummaryCache[item.pageNum]) {
+          summaryQueueRef.current.shift(); // Remove and skip
           continue;
         }
 
+        // 2. Check for empty pages (cleanup)
+        if (!item.pageText || item.pageText.trim().length < 10) {
+          summaryQueueRef.current.shift(); // Remove
+          setPageSummary(item.pageNum, "No text content available for this page.");
+          continue;
+        }
+
+        // 3. Check token limit
+        const estimatedTokens = Math.ceil(item.pageText.length / 4);
+        
+        // If adding this page exceeds token limit AND we already have pages in batch,
+        // stop here and process what we have.
+        if (batch.length > 0 && currentBatchTokens + estimatedTokens > MAX_BATCH_TOKENS) {
+          console.log(`[PDF Reader] Batch full by tokens: ${currentBatchTokens} tokens, ${batch.length} pages`);
+          break;
+        }
+
+        // Add to batch
+        summaryQueueRef.current.shift(); // Remove from queue
         batch.push(item);
+        currentBatchTokens += estimatedTokens;
       }
 
       if (batch.length > 0) {
-        // Process batch (5 pages in one API call)
+        console.log(`[PDF Reader] Processing batch: ${batch.length} pages, ~${currentBatchTokens} tokens`);
+        
+        // Process batch
         await generateBatchSummaries(batch);
 
         // Add delay between batches to avoid rate limits (2 seconds)
